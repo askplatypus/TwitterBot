@@ -4,6 +4,7 @@ import time
 import json
 import uuid
 import requests
+import re
 import traceback
 from ppp_datamodel.communication import Response, Request
 from ppp_datamodel import Resource, Sentence, Triple, Missing, List
@@ -32,10 +33,13 @@ class StreamWatcherListener(tweepy.StreamListener):
         except Exception as e:
             traceback.print_exc()
     def _on_status(self, status):
-        if not status.text.startswith('@' + self.me):
-            return
-        sentence = status.text.split(' ', 1)[1]
-        prefix = '@%s ' % status.author.screen_name
+        twittos_list = re.findall('@[a-zA-Z0-9_]*', status.text)
+        sentence = status.text
+        for twitto in twittos_list:
+            sentence = sentence.replace(twitto, '')
+        sentence = re.sub(' +', ' ', sentence).strip() # remove multiple spaces
+        twittos_list.remove('@' + self.me)
+        prefix = '@%s %s ' % (status.author.screen_name, ' '.join(twittos_list))
         r = Request(id='twitter-%s' % uuid.uuid4().hex,
                 language='en',
                 tree=Sentence(value=sentence))
@@ -81,4 +85,3 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print()
         print('Goodbye!')
-

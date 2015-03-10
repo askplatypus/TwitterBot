@@ -33,7 +33,7 @@ class StreamWatcherListener(tweepy.StreamListener):
         except Exception as e:
             traceback.print_exc()
     def _on_status(self, status):
-        twittos_list = re.findall('@[a-zA-Z]*', status.text)
+        twittos_list = re.findall('@[a-zA-Z0-9_]*', status.text)
         sentence = status.text
         for twitto in twittos_list:
             sentence = sentence.replace(twitto, '')

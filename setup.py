@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
-    name='ppp_twitter_bot',
+    name='platypus_twitter',
     version='0.1',
-    description='Twitter bot that uses the PPP to answer mentions',
-    url='https://github.com/ProgVal/TwitterPlatypus',
-    author='Valentin Lorentz',
-    author_email='valentin.lorentz+ppp@ens-lyon.org',
+    description='Twitter bot that uses Platypus to answer mentions',
+    url='https://github.com/askplatypus/TwitterBot',
     license='MIT',
     classifiers=[
         'Environment :: No Input/Output (Daemon)',
@@ -17,17 +15,16 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.2',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6'
     ],
     install_requires=[
-        'ppp_datamodel>=0.6.3,<0.7',
-        'tweepy==3.1',
+        'requests>=2.0,<3.0',
+        'PyLD>=0.8,<0.9',
+        'tweepy>=3.5,<4.0',
+        'babel>=2.5,<3.0'
     ],
     packages=[
-        'ppp_twitter_bot',
+        'platypus_twitter',
     ],
 )
-
-

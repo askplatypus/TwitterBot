@@ -10,6 +10,7 @@ import requests
 import tweepy
 from babel import Locale
 from babel.dates import format_datetime, format_date, format_time
+from babel.lists import format_list
 from babel.numbers import format_number, format_decimal
 from babel.units import format_unit
 from pyld import jsonld
@@ -25,24 +26,45 @@ def handle_question(sentence):
     if response.status_code != 200:
         return 'Our system failed, sorry for the troubles.'
 
-    data = jsonld.expand(response.json())
-    for root in data:
-        for value in root.get('http://www.w3.org/ns/hydra/core#member', []):
-            for result in value.get('http://schema.org/result', []):
-                context_subject = None
-                context_predicate = None
-                for k, v in result.get('@reverse', {}).items():
-                    context_predicate = from_caml_case(k.replace('http://schema.org/', ''))
-                    context_subject = format_element(v[0])
-                if context_subject is not None and context_predicate is not None:
-                    return 'The {} of {} is {}'.format(
-                        context_predicate,
-                        context_subject,
-                        format_element(result)
-                    )
-                else:
-                    return 'I have found: {}'.format(format_element(result))
-    return 'No response'
+    try:
+        data = jsonld.expand(response.json())
+        results = []
+        context_subject = None
+        context_predicate = None
+        term = None
+        for root in data:
+            for value in root.get('http://www.w3.org/ns/hydra/core#member', []):
+                new_term = value.get('http://askplatyp.us/vocab#term', [''])[0]
+                if term is not None and new_term != term:
+                    return format_result_sentence(results, context_subject, context_predicate)
+                term = new_term
+
+                for result in value.get('http://schema.org/result', []):
+                    for k, v in result.get('@reverse', {}).items():
+                        new_context_predicate = from_caml_case(k.replace('http://schema.org/', ''))
+                        new_context_subject = format_element(v[0])
+                        if context_subject is not None and new_context_subject != context_subject:
+                            return format_result_sentence(results, context_subject, context_predicate)
+                        context_subject = new_context_subject
+                        context_predicate = new_context_predicate
+                    results.append(format_element(result))
+        return format_result_sentence(results, context_subject, context_predicate)
+    except Exception as e:
+        print(e)
+        return 'Our system failed, sorry for the troubles.'
+
+
+def format_result_sentence(results, context_subject, context_predicate):
+    if len(results) == 0:
+        return 'No response'
+    elif context_subject is not None and context_predicate is not None:
+        if len(results) == 1:
+            return 'The {} of {} is {}'.format(context_predicate, context_subject, results[1])
+        else:
+            return 'The {} of {} are {}'.format(context_predicate, context_subject, format_list(results, 'en'))
+    else:
+        return 'I have found: {}'.format(format_list(results, 'en'))
+
 
 def format_element(element):
     # literal
@@ -52,19 +74,21 @@ def format_element(element):
         if type == 'http://www.w3.org/2001/XMLSchema#dateTime':
             bc = (val[0] == '-')
             try:
-                return format_datetime(datetime.strptime(val, ('-' if bc else '') + '%Y-%m-%dT%H:%M:%SZ'), locale=locale, format='full') + (
-                    ' ' + locale.eras['wide'][0] if bc else '')
+                return format_datetime(datetime.strptime(val, ('-' if bc else '') + '%Y-%m-%dT%H:%M:%SZ'),
+                                       locale=locale, format='full') + (
+                           ' ' + locale.eras['wide'][0] if bc else '')
             except ValueError:
                 return val
         elif type == 'http://www.w3.org/2001/XMLSchema#date':
             bc = (val[0] == '-')
             try:
-                return format_date(datetime.strptime(val, ('-' if bc else '') + '%Y-%m-%dZ'), locale=locale, format='full') + (' ' + locale.eras['wide'][0] if bc else '')
+                return format_date(datetime.strptime(val, ('-' if bc else '') + '%Y-%m-%dZ'), locale=locale,
+                                   format='full') + (' ' + locale.eras['wide'][0] if bc else '')
             except ValueError:
                 return val
         elif type == 'http://www.w3.org/2001/XMLSchema#decimal' or \
-                        type == 'http://www.w3.org/2001/XMLSchema#double' or \
-                        type == 'http://www.w3.org/2001/XMLSchema#float':
+                type == 'http://www.w3.org/2001/XMLSchema#double' or \
+                type == 'http://www.w3.org/2001/XMLSchema#float':
             return format_decimal(float(val), locale=locale)
         elif type == 'http://www.w3.org/2001/XMLSchema#integer':
             return format_number(int(val), locale=locale)
@@ -80,8 +104,8 @@ def format_element(element):
     types = element.get('@type', [])
 
     if 'http://schema.org/GeoCoordinates' in types and \
-                    'http://schema.org/latitude' in element and \
-                    'http://schema.org/longitude' in element:
+            'http://schema.org/latitude' in element and \
+            'http://schema.org/longitude' in element:
         latitude = float(element['http://schema.org/latitude'][0]['@value'])
         longitude = float(element['http://schema.org/longitude'][0]['@value'])
         lat_dir = 'north' if latitude >= 0 else 'south'
@@ -114,7 +138,7 @@ class StreamWatcherListener(tweepy.StreamListener):
             self._on_status(status)
         except KeyboardInterrupt:
             raise
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
 
     def _on_status(self, status):
